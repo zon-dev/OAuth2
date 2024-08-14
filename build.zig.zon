@@ -1,0 +1,19 @@
+.{
+    .name = "oauth2",
+    .version = "0.0.0",
+    .dependencies = .{
+        // .tools = .{
+        //     .url = "https://github.com/zon-dev/tools/archive/refs/heads/main.zip",
+        //     .hash = "1220c3f1eaffb7fe35c0759e1bd55fc4af1b8bd42d59927b7a0de85c17ce3988be95",
+        // },
+        .tools = .{
+            .path = "../tools",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "README.md",
+    },
+}
