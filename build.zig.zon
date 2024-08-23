@@ -2,18 +2,13 @@
     .name = "oauth2",
     .version = "0.0.0",
     .dependencies = .{
-        // .tools = .{
-        //     .url = "https://github.com/zon-dev/tools/archive/refs/heads/main.zip",
-        //     .hash = "1220c3f1eaffb7fe35c0759e1bd55fc4af1b8bd42d59927b7a0de85c17ce3988be95",
-        // },
-        .tools = .{
-            .path = "../tools",
+        .zinc = .{
+            .path = "../zinc",
+        },
+        .url = .{
+            .url = "https://github.com/zon-dev/url/archive/refs/tags/v0.1.0-alpha3.tar.gz",
+            .hash = "12202bba3f2b5a2d0b7bf9b1e448337cfc625476b9cffc5230f22ae780d19fd3f5af",
         },
     },
-    .paths = .{
-        "build.zig",
-        "build.zig.zon",
-        "src",
-        "README.md",
-    },
+    .paths = .{ "build.zig", "build.zig.zon", "src", "README.md", "" },
 }

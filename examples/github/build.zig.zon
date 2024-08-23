@@ -1,0 +1,22 @@
+.{
+    .name = "github",
+    .version = "0.0.0",
+    .dependencies = .{
+        .oauth2 = .{ .path = "../../" },
+        .zinc = .{
+            .url = "https://github.com/zon-dev/zinc/archive/refs/heads/main.zip",
+            .hash = "1220062fc2aae60e48bfd6001b12e13c466d71e2e9c00ae0d77f6c178b791d68e5d6",
+        },
+        .url = .{
+            .url = "https://github.com/zon-dev/url/archive/refs/tags/v0.1.0-alpha3.tar.gz",
+            .hash = "12202bba3f2b5a2d0b7bf9b1e448337cfc625476b9cffc5230f22ae780d19fd3f5af",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        // "LICENSE",
+        //"README.md",
+    },
+}

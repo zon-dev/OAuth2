@@ -4,7 +4,8 @@ const AccessToken = @import("Accesstoken.zig").AccessToken;
 pub const Provider = @This();
 const http = std.http;
 const Client = http.Client;
-const URL = @import("tools").URL;
+// const URL = @import("tools").URL;
+const URL = @import("url");
 
 // id: []const u8,
 
@@ -26,6 +27,9 @@ endpoint: Endpoint,
 name_prop: []const u8 = "",
 name_prefix: []const u8 = "",
 
+server_header_buffer: usize = 16 * 1024,
+buffer_len: usize = 1024 * 10,
+
 pub const Endpoint = struct {
     authorize_url: []const u8,
     token_url: []const u8,
@@ -42,25 +46,99 @@ fn scope(provider: *Provider) ?[]const u8 {
             _ = grant_scope.appendSlice(" ") catch null;
         }
     }
+
+    // Remove the last space
+    _ = grant_scope.pop();
+
     return grant_scope.toOwnedSlice() catch null;
 }
 
-pub fn getAccessToken(provider: *Provider, code: []const u8) !AccessToken {
-    _ = code;
-    return AccessToken.init(.{
-        .access_token = "access_token,",
-        .refresh_token = "refresh_token",
-        .expires = std.time.timestamp() + 3600,
-        .resource_owner_id = "resource_owner_id",
-        .values = std.StringHashMap([]const u8).init(provider.allocator),
+pub fn getAccessToken(provider: *Provider, code: []const u8) anyerror!AccessToken {
+    // Create an HTTP client.
+    var client = std.http.Client{ .allocator = provider.allocator };
+    // Release all associated resources with the client.
+    defer client.deinit();
+
+    const payload_str = std.fmt.allocPrint(provider.allocator, "grant_type=authorization_code&client_id={s}&client_secret={s}&redirect_uri={s}&code={s}", .{ provider.client_id, provider.client_secret, provider.redirect_uri, code }) catch unreachable;
+
+    var req = try fetch(&client, .{
+        .method = .POST,
+        .location = .{
+            .url = provider.endpoint.token_url,
+        },
+        .extra_headers = &.{
+            .{ .name = "accpet", .value = "*/*" },
+            .{ .name = "Content-Type", .value = "application/x-www-form-urlencoded" },
+        },
+        .payload = payload_str,
     });
+
+    defer req.deinit();
+
+    var body_buffer: []u8 = undefined;
+    // body_buffer = try provider.allocator.alloc(u8, 16 * 1024);
+    body_buffer = try provider.allocator.alloc(u8, req.response.content_length orelse 16 * 1024);
+    _ = try req.read(body_buffer);
+
+    var header_buffer: []u8 = undefined;
+    header_buffer = try provider.allocator.alloc(u8, req.response.content_length orelse 10 * 1024);
+
+    header_buffer = req.response.parser.get();
+    const res_content_type = req.response.content_type;
+    if (res_content_type != null) {
+        const form_url = std.mem.indexOf(u8, res_content_type.?, "application/x-www-form-urlencoded");
+        if (form_url != null) {
+            return try AccessToken.parseUrlEncoded(body_buffer, provider.allocator);
+        }
+
+        const form_json = std.mem.indexOf(u8, res_content_type.?, "application/json");
+        if (form_json != null) {
+            return try AccessToken.parseJSON(body_buffer, provider.allocator);
+        }
+    }
+
+    return error.Unreachable;
 }
 
-pub fn getResourceOwner(provider: *Provider, token: []const u8) ![]const u8 {
-    _ = provider;
-    _ = token;
+// pub fn getResourceOwner(provider: *Provider, token: []const u8, resource_struct: type) anyerror![]const u8 {
+pub fn getResourceOwner(provider: *Provider, token: []const u8, comptime resource_struct: type,) anyerror! resource_struct {
     // Implement resource owner retrieval
-    return "John Doe";
+    var client = std.http.Client{ .allocator = provider.allocator };
+    var req = try fetch(&client, .{
+        .location = .{
+            .url = provider.endpoint.userinfo_url,
+        },
+        .extra_headers = &.{
+            .{ .name = "accpet", .value = "*/*" },
+            .{ .name = "Authorization", .value = std.fmt.allocPrint(provider.allocator, "Bearer {s}", .{token}) catch "" },
+        },
+    });
+
+    defer req.deinit();
+
+    var body_buffer: []u8 = undefined;
+    body_buffer = try provider.allocator.alloc(u8, req.response.content_length orelse 16 * 1024);
+    _ = try req.read(body_buffer);
+
+    var header_buffer: []u8 = undefined;
+    header_buffer = try provider.allocator.alloc(u8, req.response.content_length orelse 10 * 1024);
+    header_buffer = req.response.parser.get();
+
+    const res_content_type = req.response.content_type;
+    if (res_content_type != null) {
+        const form_json = std.mem.indexOf(u8, res_content_type.?, "application/json");
+        if (form_json != null) {
+            // parse JSON
+            var parsed = try std.json.parseFromSlice(resource_struct, provider.allocator, body_buffer, .{
+                .ignore_unknown_fields = true,
+            });
+            defer parsed.deinit();
+            return parsed.value;
+        }
+    }
+
+    // return body_buffer;
+    return error.Unreachable;
 }
 
 pub fn getAuthorizationUrl(provider: *Provider) ![]const u8 {
@@ -71,27 +149,6 @@ pub fn getAuthorizationUrl(provider: *Provider) ![]const u8 {
     } else {
         authUrl = std.fmt.allocPrint(provider.allocator, "{s}?client_id={s}&redirect_uri={s}&response_type=code&scope={s}", .{ provider.endpoint.authorize_url, provider.client_id, provider.redirect_uri, grant_scope.? }) catch unreachable;
     }
-
-    // std.debug.print("Location: {s}\n", .{authUrl});
-    // var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    // defer std.debug.assert(gpa.deinit() == .ok);
-    // const allocator = gpa.allocator();
-
-    // // Create an HTTP client.
-    // var client = std.http.Client{ .allocator = allocator };
-    // // Release all associated resources with the client.
-    // defer client.deinit();
-
-    // var req = try fetch(&client, .{
-    //     .location = .{
-    //         .url = authUrl,
-    //     },
-    //     .extra_headers = &.{
-    //         .{ .name = "accpet", .value = "*/*" },
-    //     },
-    // });
-    // defer req.deinit();
-
     return authUrl;
 }
 
@@ -101,6 +158,7 @@ fn fetch(client: *std.http.Client, options: std.http.Client.FetchOptions) !std.h
         .url => |u| try std.Uri.parse(u),
         .uri => |u| u,
     };
+    // var server_header_buffer = options.server_header_buffer orelse (16 * 1024);
     var server_header_buffer: [16 * 1024]u8 = undefined;
 
     const method: std.http.Method = options.method orelse
@@ -131,41 +189,6 @@ fn fetch(client: *std.http.Client, options: std.http.Client.FetchOptions) !std.h
 pub fn getState() ![]const u8 {
     return "state";
 }
-
-// // Define associated types used in the methods
-// const AccessToken = struct {
-//     // Add fields as necessary
-// };
-
 const ResourceOwner = struct {
     // Add fields as necessary
 };
-
-// // Example implementation of the methods
-// fn getBaseAuthorizationUrl(self: *AuthProvider) void {
-//     // Implementation here
-// }
-
-// fn getBaseAccessTokenUrl(self: *AuthProvider, params: []const u8) []const u8 {
-//     // Implementation here
-//     return null;
-// }
-
-// fn getResourceOwnerDetailsUrl(self: *AuthProvider, token: AccessToken) []const u8 {
-//     // Implementation here
-//     return null;
-// }
-
-// fn getDefaultScopes(self: *AuthProvider) []const u8 {
-//     // Implementation here
-//     return null;
-// }
-
-// fn checkResponse(self: *AuthProvider, response: *Response, data: []const u8) void {
-//     // Implementation here
-// }
-
-// fn createResourceOwner(self: *AuthProvider, response: []const u8, token: AccessToken) ResourceOwner {
-//     // Implementation here
-//     return ResourceOwner{};
-// }
