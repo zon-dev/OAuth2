@@ -4,10 +4,7 @@ const AccessToken = @import("Accesstoken.zig").AccessToken;
 pub const Provider = @This();
 const http = std.http;
 const Client = http.Client;
-// const URL = @import("tools").URL;
 const URL = @import("url");
-
-// id: []const u8,
 
 allocator: std.mem.Allocator = std.heap.page_allocator,
 
@@ -18,11 +15,6 @@ scopes: []const []const u8 = &.{},
 grant_type: GrantType = .authorization_code,
 
 endpoint: Endpoint,
-
-// authorize_url: []const u8 = "",
-// token_url: []const u8 = "",
-// userinfo_url: []const u8 = "",
-// device_auth_url: []const u8 = "",
 
 name_prop: []const u8 = "",
 name_prefix: []const u8 = "",
@@ -75,15 +67,12 @@ pub fn getAccessToken(provider: *Provider, code: []const u8) anyerror!AccessToke
 
     defer req.deinit();
 
-    var body_buffer: []u8 = undefined;
-    // body_buffer = try provider.allocator.alloc(u8, 16 * 1024);
-    body_buffer = try provider.allocator.alloc(u8, req.response.content_length orelse 16 * 1024);
-    _ = try req.read(body_buffer);
+    const body_buffer = req.reader().readAllAlloc(provider.allocator, req.response.content_length orelse 8 * 1024) catch unreachable;
 
     var header_buffer: []u8 = undefined;
     header_buffer = try provider.allocator.alloc(u8, req.response.content_length orelse 10 * 1024);
-
     header_buffer = req.response.parser.get();
+
     const res_content_type = req.response.content_type;
     if (res_content_type != null) {
         const form_url = std.mem.indexOf(u8, res_content_type.?, "application/x-www-form-urlencoded");
@@ -100,8 +89,10 @@ pub fn getAccessToken(provider: *Provider, code: []const u8) anyerror!AccessToke
     return error.Unreachable;
 }
 
-// pub fn getResourceOwner(provider: *Provider, token: []const u8, resource_struct: type) anyerror![]const u8 {
-pub fn getResourceOwner(provider: *Provider, token: []const u8, comptime resource_struct: type,) anyerror! resource_struct {
+pub fn getResourceOwner(
+    provider: *Provider,
+    token: []const u8,
+) anyerror![]u8 {
     // Implement resource owner retrieval
     var client = std.http.Client{ .allocator = provider.allocator };
     var req = try fetch(&client, .{
@@ -116,29 +107,23 @@ pub fn getResourceOwner(provider: *Provider, token: []const u8, comptime resourc
 
     defer req.deinit();
 
-    var body_buffer: []u8 = undefined;
-    body_buffer = try provider.allocator.alloc(u8, req.response.content_length orelse 16 * 1024);
-    _ = try req.read(body_buffer);
+    // Read the entire response body, but only allow it to allocate 8KB of memory.
+    const body_buffer = req.reader().readAllAlloc(provider.allocator, req.response.content_length orelse 8 * 1024) catch unreachable;
+    // defer provider.allocator.free(body_buffer);
 
     var header_buffer: []u8 = undefined;
-    header_buffer = try provider.allocator.alloc(u8, req.response.content_length orelse 10 * 1024);
+    header_buffer = try provider.allocator.alloc(u8, req.response.content_length orelse 2 * 1024);
     header_buffer = req.response.parser.get();
 
     const res_content_type = req.response.content_type;
     if (res_content_type != null) {
         const form_json = std.mem.indexOf(u8, res_content_type.?, "application/json");
         if (form_json != null) {
-            // parse JSON
-            var parsed = try std.json.parseFromSlice(resource_struct, provider.allocator, body_buffer, .{
-                .ignore_unknown_fields = true,
-            });
-            defer parsed.deinit();
-            return parsed.value;
+            return body_buffer;
         }
     }
 
-    // return body_buffer;
-    return error.Unreachable;
+    return body_buffer;
 }
 
 pub fn getAuthorizationUrl(provider: *Provider) ![]const u8 {

@@ -34,7 +34,6 @@ pub fn oauth2provider() Provider {
         .client_secret = client_secret,
         .redirect_uri = redirect_uri,
         .scopes = scopes,
-        // .endpoint = dp_endpoint,
         .endpoint = Providers.github,
     };
 }
@@ -48,12 +47,12 @@ pub fn oauth2process(ctx: *zinc.Context) !void {
     // Assuming you have a query parameter 'code'
     const code = getCode(callback_url);
     if (code == null) {
-        // std.process.execve(allocator,.{},env_map);
         const OAUTH2_STATE = "12345";
         // 'code' is not set, handle the case accordingly
         const authUrl = try provider.getAuthorizationUrl();
 
         try env_map.put("OAUTH2_STATE", OAUTH2_STATE);
+        // std.process.execve(allocator,.{},env_map);
 
         const location = try std.fmt.allocPrint(allocator, "{s}&state={s}", .{ authUrl, OAUTH2_STATE });
 
@@ -78,14 +77,15 @@ pub fn oauth2process(ctx: *zinc.Context) !void {
     std.debug.print("Access token: {s}\n", .{token.access_token});
 
     // Optional: Now you have a token you can look up a user's profile data
-    const res_user = try provider.getResourceOwner(token.access_token,struct {
+    const body_buffer = try provider.getResourceOwner(token.access_token);
+    const parsed = try std.json.parseFromSlice(struct {
         login: []const u8,
+    }, allocator, body_buffer, .{
+        .ignore_unknown_fields = true,
     });
 
-    std.debug.print("Hello {s}!\n", .{res_user.login});
-    std.process.exit(1);
-
-    try ctx.json(res_user, .{});
+    std.debug.print("Hello {s}!\n", .{parsed.value.login});
+    try ctx.json(parsed.value, .{});
 }
 
 fn getCode(redirect_uri: []const u8) ?[]const u8 {

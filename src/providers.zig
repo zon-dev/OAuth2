@@ -1,19 +1,6 @@
 const Provider = @import("Provider.zig").Provider;
 const Endpoint = Provider.Endpoint;
 
-// pub fn getProvider(id: []const u8) Endpoint {
-//     switch (id) {
-//         "amazon" => return amazon,
-//         "battle.net" => return battle_net,
-//         "discord" => return discord,
-//         "facebook" => return facebook,
-//         "github" => return github,
-//         "google" => return google,
-//         "microsoft" => return microsoft,
-//     }
-//     return Endpoint{};
-// }
-
 pub const amazon = Endpoint{
     .authorize_url = "https://www.amazon.com/ap/oa",
     .token_url = "https://api.amazon.com/auth/o2/token",
@@ -22,30 +9,24 @@ pub const amazon = Endpoint{
 };
 
 pub const battle_net = Endpoint{
-    // .id = "battle.net",
     .authorize_url = "https://us.battle.net/oauth/authorize",
     .token_url = "https://us.battle.net/oauth/token",
     .userinfo_url = "https://us.battle.net/oauth/userinfo",
-    // .scope = "openid",
 };
 
 pub const discord = Endpoint{
-    // .id = "discord",
     .authorize_url = "https://discordapp.com/api/oauth2/authorize",
     .token_url = "https://discordapp.com/api/oauth2/token",
     .userinfo_url = "https://discordapp.com/api/users/@me",
-    // .scope = "identify",
 };
 
 pub const facebook = Endpoint{
-    // .id = "facebook",
     .authorize_url = "https://graph.facebook.com/oauth/authorize",
     .token_url = "https://graph.facebook.com/oauth/access_token",
     .userinfo_url = "https://graph.facebook.com/me",
 };
 
 pub const github = Endpoint{
-    // .id = "github.com",
     .authorize_url = "https://github.com/login/oauth/authorize",
     .token_url = "https://github.com/login/oauth/access_token",
     .userinfo_url = "https://api.github.com/user",
@@ -53,7 +34,6 @@ pub const github = Endpoint{
 };
 
 pub const google = Endpoint{
-    // .id = "google",
     .authorize_url = "https://accounts.google.com/o/oauth2/v2/auth",
     .token_url = "https://www.googleapis.com/oauth2/v4/token",
     .userinfo_url = "https://www.googleapis.com/oauth2/v1/userinfo?alt=json",
